@@ -6,16 +6,17 @@ import io
 
 st.set_page_config(page_title="Earnings Manipulation Detector", layout="centered")
 
+# Load model safely
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "final_model.pkl")
 model = joblib.load(MODEL_PATH)
 
 st.title("🔍 Earnings Manipulation Detector")
-st.write("Detect earnings manipulation risk using Beneish ratios")
+st.write("Detect earnings manipulation risk using Beneish financial ratios")
 
 mode = st.radio("Select Mode", ["Bulk Excel Scanner", "Manual Entry Checker"])
 
-# -------- BULK MODE --------
+# ================= BULK MODE =================
 if mode == "Bulk Excel Scanner":
     uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
@@ -24,7 +25,7 @@ if mode == "Bulk Excel Scanner":
         required_cols = list(model.feature_names_in_)
 
         if not all(col in df.columns for col in required_cols):
-            st.error(f"Excel must contain: {required_cols}")
+            st.error(f"Excel must contain these columns:\n{required_cols}")
         else:
             X = df[required_cols]
             df["Risk_Prediction"] = model.predict(X)
@@ -43,7 +44,7 @@ if mode == "Bulk Excel Scanner":
                                file_name="fraud_results.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# -------- MANUAL MODE --------
+# ================= MANUAL MODE =================
 if mode == "Manual Entry Checker":
     st.subheader("Enter Beneish Ratios")
 
@@ -57,10 +58,14 @@ if mode == "Manual Entry Checker":
     LEVI = st.number_input("LEVI", value=1.0)
 
     if st.button("Check Manipulation Risk"):
-        feature_order = model.feature_names_in_
+        feature_order = list(model.feature_names_in_)
+        user_vals = [DSRI, GMI, AQI, SGI, DEPI, SGAI, ACCR, LEVI]
 
-        input_df = pd.DataFrame([[DSRI, GMI, AQI, SGI, DEPI, SGAI, ACCR, LEVI]],
-                                 columns=feature_order)
+        # Auto-fill any extra training columns (like Company_ID)
+        while len(user_vals) < len(feature_order):
+            user_vals.insert(0, 0)
+
+        input_df = pd.DataFrame([user_vals], columns=feature_order)
 
         pred = model.predict(input_df)[0]
         prob = model.predict_proba(input_df)[0][1]
@@ -69,6 +74,8 @@ if mode == "Manual Entry Checker":
             st.error(f"⚠ Likely Manipulator (Risk Probability: {prob:.2f})")
         else:
             st.success(f"✅ Likely Non-Manipulator (Risk Probability: {prob:.2f})")
+
+
 
 
 
